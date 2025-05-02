@@ -40,6 +40,9 @@
 from m5.defines import buildEnv
 from m5.objects import *
 
+# Import Prefetcher objects
+from m5.objects.Prefetcher import StridePrefetcher, TaggedPrefetcher, QueuedPrefetcher
+
 from gem5.isas import ISA
 
 # Base implementations of L1, L2, IO and TLB-walker caches. There are
@@ -48,34 +51,45 @@ from gem5.isas import ISA
 # starting point, and specific parameters can be overridden in the
 # specific instantiations.
 
-
 class L1Cache(Cache):
-    assoc = 2
-    tag_latency = 2
-    data_latency = 2
-    response_latency = 2
-    mshrs = 4
+    assoc = 8           # Updated: From Boom nWays=8
+    tag_latency = 3     # Updated: Plausible latency for 32kB/8-way
+    data_latency = 3    # Updated: Plausible latency
+    response_latency = 3 # Updated: Plausible latency
+    mshrs = 4           # Default MSHRs, D$ will override
     tgts_per_mshr = 20
 
 
 class L1_ICache(L1Cache):
+    size = '32kB'
     is_read_only = True
     # Writeback clean lines as well
     writeback_clean = True
 
 
 class L1_DCache(L1Cache):
-    pass
+    size = '32kB'       # Updated: From Boom nSets=64, nWays=8
+    mshrs = 8           # Updated: From Boom nMSHRs=8
+    write_buffers = 16  # Increased write buffers might be beneficial
+
+    # Add prefetcher based on Boom's enablePrefetching=true
+    # Using a Queued Stride Prefetcher as a default example
+    prefetcher = QueuedPrefetcher(
+                    prefetcher=StridePrefetcher(degree=8, queue_size=32),
+                    latency=1,
+                    queue_size=64, # Prefetch request queue
+                 )
 
 
 class L2Cache(Cache):
+    size = '256kB'
     assoc = 8
     tag_latency = 20
     data_latency = 20
     response_latency = 20
     mshrs = 20
     tgts_per_mshr = 12
-    write_buffers = 8
+    write_buffers = 16
 
 
 class IOCache(Cache):
